@@ -11,7 +11,7 @@ For example, a bag recorded in a dashing environment can be replayed in a foxy e
    cd ~/ros2_ws/src/
    ```
    ```sh
-   git@github.com:nhma20/rosbag2_upgrader.git
+   git clone https://github.com/nhma20/rosbag2_upgrader.git
    ```
 2. Colcon build package
    ```sh
