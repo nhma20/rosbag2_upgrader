@@ -32,3 +32,9 @@ For example, a bag recorded in a dashing environment can be replayed in a foxy e
    ```sh
    ros2 run rosbag2_upgrader upgrade /home/nm/Downloads/PL_MAPPER_bags/sim_topics /cable_camera/image_raw /iwr6843_pcl
    ```
+   
+## Dependencies  
+
+Depends on the following Python3 packages:
+- rosbags (pip install rosbags)
+- cv_bridge (sudo apt-get install ros-$ROS_DISTRO-cv-bridge)
