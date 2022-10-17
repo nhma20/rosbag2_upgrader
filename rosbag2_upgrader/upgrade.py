@@ -212,12 +212,16 @@ class DataLoader(Node):
 
 def main(argv=None):
 
-    if len(sys.argv) > 1:
-        bag_path = sys.argv[1]
-    if len(sys.argv) > 2:
+    if len(sys.argv) == 4:
+        bag_path = sys.argv[1] 
         img_topic = sys.argv[2]
-    if len(sys.argv) > 3:
         mmw_topic = sys.argv[3]
+    elif len(sys.argv) > 4:
+        print("Too many arguments given. Usage: \n ros2 run rosbag2_upgrader upgrade <bag_path> <camera_topic> <radar_topic>")
+        exit()
+    elif len(sys.argv) < 4:
+        print("Too few arguments given. Usage: \n ros2 run rosbag2_upgrader upgrade <bag_path> <camera_topic> <radar_topic>")
+        exit()
 
     #init
     rclpy.init()
