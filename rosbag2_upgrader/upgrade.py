@@ -11,9 +11,19 @@ import cv2
 import numpy as np
 import threading
 import sys
+import os
+import time
+import subprocess
+import signal
+
 
 #/home/nm/Downloads/rosbag2_2022_10_14-11_14_30 # T265
 #/home/nm/Downloads/PL_MAPPER_bags/bag_uncompressed # both img and pcl
+
+global parsing_radar_done
+parsing_radar_done = 0
+global parsing_img_done
+parsing_img_done = 0
 
 class DataLoader(Node):
     def __init__(self, bag_path, img_topic, mmw_topic):
@@ -22,13 +32,13 @@ class DataLoader(Node):
 
         self.bag_path = bag_path#'/home/nm/Downloads/PL_MAPPER_bags/sim_topics'
 
-        self.img_topic = img_topic#'/cable_camera/image_raw'
-        self.mmw_topic = mmw_topic#'/iwr6843_pcl'
+        self.img_topic = img_topic
+        self.mmw_topic = mmw_topic
 
 
 
-        self.img_pub_topic = '/camera/image_raw'
-        self.mmw_pub_topic = '/radar/points'
+        self.img_pub_topic = img_topic
+        self.mmw_pub_topic = mmw_topic
         
 
         self.img_publisher_ = self.create_publisher(Image, self.img_pub_topic, 10)
@@ -66,7 +76,6 @@ class DataLoader(Node):
             # iterate over messages
             for connection, timestamp, rawdata in reader.messages():
 
-                #if connection.topic == '/camera/fisheye1/image_raw':
                 if connection.topic == self.img_topic:
                     msg = deserialize_cdr(rawdata, connection.msgtype)
                     self.img_msgs.append(msg)
@@ -93,6 +102,7 @@ class DataLoader(Node):
         now_delta = 0
         orig_delta = 0
         it = 0
+
         # iterate over messages
         for i in range(len(self.img_msgs)):
 
@@ -107,8 +117,6 @@ class DataLoader(Node):
                 orig_nano_delta = self.img_msgs[i].header.stamp.nanosec - orig_start_nanosec
                 orig_delta = orig_sec_delta*1000 + orig_nano_delta/1000000
 
-            #print("Now: ", now_delta, " Orig: ", orig_delta)
-
             # wait the correct amount of time before publishing
             while(not(now_delta > orig_delta)):
                 now_time = self.get_clock().now().to_msg()
@@ -116,9 +124,7 @@ class DataLoader(Node):
                 now_nano_delta = now_time.nanosec - now_start_nanosec
                 now_delta = now_sec_delta*1000 + now_nano_delta/1000000       
 
-
             it = it + 1
-            #print("it ", it)
 
             # convert original image to numpy array
             cv_image = self.bridge.imgmsg_to_cv2(self.img_msgs[i], desired_encoding='passthrough')
@@ -138,6 +144,8 @@ class DataLoader(Node):
             img_msg.step = self.img_msgs[i].step
             self.img_publisher_.publish(img_msg)
 
+        global parsing_img_done
+        parsing_img_done = 1
         print("Images finished")
 
 
@@ -156,6 +164,7 @@ class DataLoader(Node):
         now_delta = 0
         orig_delta = 0
         it = 0
+
         # iterate over messages
         for i in range(len(self.mmw_msgs)):
 
@@ -170,23 +179,15 @@ class DataLoader(Node):
                 orig_nano_delta = self.mmw_msgs[i].header.stamp.nanosec - orig_start_nanosec
                 orig_delta = orig_sec_delta*1000 + orig_nano_delta/1000000
 
-            # print("Now: ", now_delta, " Orig: ", orig_delta)
-
             # wait the correct amount of time before publishing
             while(not(now_delta > orig_delta)):
-
-                # print("Now: ", now_delta, "\t Orig: ", orig_delta)
 
                 now_time = self.get_clock().now().to_msg()
                 now_sec_delta = now_time.sec - now_start_sec
                 now_nano_delta = now_time.nanosec - now_start_nanosec
                 now_delta = now_sec_delta*1000 + now_nano_delta/1000000       
 
-            # print("Now: ", now_delta, "\t Orig: ", orig_delta)
-            #print("Sec: ", self.mmw_msgs[i].header.stamp.sec, "\t Nano: ", self.mmw_msgs[i].header.stamp.nanosec)
-
             it = it + 1
-            #print("it ", it)
 
             # create new message with numpy array as data
             pcl_msg = PointCloud2()
@@ -207,34 +208,54 @@ class DataLoader(Node):
 
             self.mmw_publisher_.publish(pcl_msg)
 
+        global parsing_radar_done
+        parsing_radar_done = 1
         print("Radar data finished")
+
 
 
 def main(argv=None):
 
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
         bag_path = sys.argv[1] 
         img_topic = sys.argv[2]
         mmw_topic = sys.argv[3]
-    elif len(sys.argv) > 4:
+        bag_dir = sys.argv[4]
+    elif len(sys.argv) > 5:
         print("Too many arguments given. Usage: \n ros2 run rosbag2_upgrader upgrade <bag_path> <camera_topic> <radar_topic>")
         exit()
-    elif len(sys.argv) < 4:
+    elif len(sys.argv) < 5:
         print("Too few arguments given. Usage: \n ros2 run rosbag2_upgrader upgrade <bag_path> <camera_topic> <radar_topic>")
         exit()
+
 
     #init
     rclpy.init()
     minimal_publisher = DataLoader(bag_path=bag_path, img_topic=img_topic, mmw_topic=mmw_topic)
     minimal_publisher.load_data()
 
-    mmw_thread = threading.Thread(target=minimal_publisher.republish_mmw)
-    mmw_thread.start()
+    recorder = subprocess.Popen(['ros2', 'bag', 'record', '-o', bag_dir, img_topic, mmw_topic])
 
-    minimal_publisher.republish_img()
+    time.sleep(0.5)
+
+    mmw_thread = threading.Thread(target=minimal_publisher.republish_mmw)
+    cam_thread = threading.Thread(target=minimal_publisher.republish_img)
+
+    mmw_thread.start()
+    cam_thread.start()
+
+
+    global parsing_img_done
+    global parsing_radar_done
+    while(parsing_img_done != 1 or parsing_radar_done != 1):
+        time.sleep(0.5)
 
     #shutdown
     mmw_thread.join()
+    cam_thread.join()
+    recorder_pid = recorder.pid
+    os.kill(recorder_pid, signal.SIGINT) # ctrl+c to ros2 bag record
+
     print("Done")
     minimal_publisher.destroy_node()
     rclpy.shutdown()
