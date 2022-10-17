@@ -26,11 +26,12 @@ For example, a bag recorded in a dashing environment can be replayed in a foxy e
 ## Usage
 
 0. Plug in IWR6843AOPEVM, make sure CLI and data ports match (default /dev/ttyUSB0 and /dev/ttyUSB1)
-1. Run ros package (make sure /opt/ros/dashing/setup.bash and <ros2_workspace>/install/setup.bash are sourced)
+1. Run ros package (make sure /opt/ros/foxy/setup.bash and <ros2_workspace>/install/setup.bash are sourced)
 
-   With parameters (ros2 run rosbag2_upgrader upgrade <bag_path> <cam_topic> <mmw_topic>):
-   ```sh
-   ros2 run rosbag2_upgrader upgrade /home/nm/Downloads/PL_MAPPER_bags/sim_topics /cable_camera/image_raw /iwr6843_pcl
+   With parameters (ros2 run rosbag2_upgrader upgrade <bag_path> <cam_topic> <mmw_topic> <new_bag_dir>):
+   ```sh 
+   ros2 run rosbag2_upgrader upgrade /home/nm/Downloads/ros_bags/sim_topics /cable_camera/image_raw /iwr6843_pcl /home/nm/ros2_ws/test_bag/
+
    ```
    
 ## Dependencies  
