@@ -1,7 +1,9 @@
-# rosbag2_upgrader
-Play ros2 bag from older ROS2 version in newer ROS2 version
+# ROS2 Bag Upgrade Tool
+Upgrade recorded bag from older version of ros2 (e.g. dashing) to newer version of ros2 (e.g. foxy)
 
-For example, a bag recorded in a dashing environment can be replayed in a foxy environment.
+For example, a bag recorded in a dashing environment can be re-recorded in a foxy environment. 
+
+For now, only works with one PointCloud2 and one Image topic - use as template to customize to any number of messages.
 
 
 ### Installation
